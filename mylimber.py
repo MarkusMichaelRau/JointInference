@@ -6,6 +6,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline as inter
 from pyccl.power import nonlin_matter_power #(cosmo, k, a
 from scipy.integrate import simpson
 import time
+import numdifftools as nd
 #pyccl.background.comoving_radial_distance
 #use globally mpc as unit
 
@@ -44,39 +45,104 @@ class LimberIntegration(object):
         #return kernel_values
         #return self.pchi.expect(lambda chi_s: (chi_s - chi)/chi_s, lb=chi)
 
-    def evaluate_lens_kernel_deriv(self):
+    def evaluate_lens_kernel_deriv(self, pchi):
         mat = np.zeros((len(self.comdist_grid), len(self.comdist_grid)))
         #rows derivative after parameters, column chi values
         for i in range(len(mat)):
-            mat[i, :i+1] = 1. - self.comdist_grid[:i+1]*1./(self.chi_grid_breaks[i+1] - self.chi_grid_breaks[i])*(np.log(self.chi_grid_breaks[i+1]) - np.log(self.chi_grid_breaks[i]))
+            mat[i, :i+1] = 1. - self.comdist_grid[:i+1]*pchi/(self.chi_grid_breaks[i+1] - self.chi_grid_breaks[i])*(np.log(self.chi_grid_breaks[i+1]) - np.log(self.chi_grid_breaks[i]))
 
         return mat
 
-    def get_cl(self, ell):
+    def _get_cl(self, ell, lens_kernel1, lens_kernel2):
         power = np.array([nonlin_matter_power(self.cosmo, ell/chi, float(self.a_chi(chi))) for chi in self.comdist_grid])
-        start_time = time.time()
-        lens_kernel = self.evaluate_lens_kernel()
+        #start_time = time.time()
         a_chi = self.a_chi(self.comdist_grid)
         integrand_prefac = (9./4.) * self.om_mat**2 * (self.H0/self.c)**4 * (1./a_chi)**2
-        integrand = integrand_prefac*power*lens_kernel*lens_kernel
-        print("--- %s seconds ---" % (time.time() - start_time))
+        integrand = integrand_prefac*power*lens_kernel1*lens_kernel2
+        #print("--- %s seconds ---" % (time.time() - start_time))
         result = simpson(integrand, self.comdist_grid)
         return result
 
-    def get_cl_gradient(self, ell):
-        power = np.array([nonlin_matter_power(self.cosmo, ell/chi, float(self.a_chi(chi))) for chi in self.comdist_grid])
-        lens_kernel_deriv_mat = self.evaluate_lens_kernel_deriv()
-        lens_kernel = self.evaluate_lens_kernel()
-        a_chi = self.a_chi(self.comdist_grid)
-        integrand_prefac = (9./4.) * self.om_mat**2 * (self.H0/self.c)**4 * (1./a_chi)**2
-        output_deriv = np.zeros((len(self.comdist_grid),))
-        for i in range(len(self.comdist_grid)):
-            integrand = integrand_prefac*power*(lens_kernel*lens_kernel_deriv_mat[i, :] + lens_kernel_deriv_mat[i, :]*lens_kernel)
-            output_deriv[i] = simpson(integrand, self.comdist_grid)
-        return output_deriv
+    def get_cl(self, ell, pchi_1, pchi_2):
+
+        lens_kernel1 = self.evaluate_lens_kernel(pchi_1)
+        lens_kernel2 = self.evaluate_lens_kernel(pchi_2)
+        return self._get_cl(ell, lens_kernel1, lens_kernel2)
+
+    #def get_cl_gradient(self, ell):
+    #    power = np.array([nonlin_matter_power(self.cosmo, ell/chi, float(self.a_chi(chi))) for chi in self.comdist_grid])
+    #    lens_kernel_deriv_mat = self.evaluate_lens_kernel_deriv()
+    #    lens_kernel = self.evaluate_lens_kernel()
+    #    a_chi = self.a_chi(self.comdist_grid)
+    #    integrand_prefac = (9./4.) * self.om_mat**2 * (self.H0/self.c)**4 * (1./a_chi)**2
+    #    output_deriv = np.zeros((len(self.comdist_grid),))
+    #    for i in range(len(self.comdist_grid)):
+    #        integrand = integrand_prefac*power*(lens_kernel*lens_kernel_deriv_mat[i, :] + lens_kernel_deriv_mat[i, :]*lens_kernel)
+    #        output_deriv[i] = simpson(integrand, self.comdist_grid)
+    #    return output_deriv
 
 
 #test code
+#def get_cl(pz):
+#    cosmo = ccl.Cosmology(Omega_c=0.25, Omega_b=0.05,
+#                            h=0.7, n_s=0.95, sigma8=0.8,
+#                            transfer_function='bbks')
+#
+#    chi_grid = np.linspace(100, 4000., 50)
+#    delta_chi = (chi_grid[1] - chi_grid[0])/2.
+#    breaks = chi_grid - delta_chi
+#    breaks = np.append(breaks, breaks[-1] + 2.*delta_chi)
+#
+#
+#    model_limber = LimberIntegration(cosmo, breaks, pz)
+#
+#    return model_limber.get_cl(100)
+#
+
+#grad = nd.Gradient(get_cl)(np.repeat(1/4000., 50))
+#print(grad)
+
+class GradLimberIntegration(object):
+    def __init__(self, cosmo, chi_grid_breaks, pchi):
+        self.cosmo = cosmo
+        self.chi_grid_breaks = chi_grid_breaks
+        self.pchi = pchi
+        self.fid_limber = LimberIntegration(cosmo, chi_grid_breaks, pchi)
+
+    def get_cl(self, ell):
+        return self.fid_limber.get_cl(ell)
+
+    def get_cl_deriv(self, ell):
+        for i in range(len(chi_grid_breaks)):
+            pchi = np.zeros((len(self.pchi),))
+            pchi[i] = self.pchi[i]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 cosmo = ccl.Cosmology(Omega_c=0.25, Omega_b=0.05,
                             h=0.7, n_s=0.95, sigma8=0.8,
@@ -84,18 +150,21 @@ cosmo = ccl.Cosmology(Omega_c=0.25, Omega_b=0.05,
 
 chi_grid = np.linspace(100, 4000., 50)
 delta_chi = (chi_grid[1] - chi_grid[0])/2.
+
+pz = np.repeat(1/delta_chi, 50)
+
 breaks = chi_grid - delta_chi
 breaks = np.append(breaks, breaks[-1] + 2.*delta_chi)
 
-#model_pchi = rv_histogram((np.repeat(1/4000., 30), breaks))
+model_limber = LimberIntegration(cosmo, breaks, pz)
+print(model_limber.get_cl_gradient(100))
 
-model_limber = LimberIntegration(cosmo, breaks, np.repeat(1/4000., 50))
-
-output = np.column_stack((np.linspace(70, 1000, 100), [model_limber.get_cl(el) for el in np.linspace(70, 1000, 100)]))
-
-np.savetxt(X=output, fname='cl_test.dat')
-output_cl_deriv = np.column_stack((np.linspace(70, 1000, 100), [model_limber.get_cl_gradient(el) for el in np.linspace(70, 1000, 100)]))
-
-np.savetxt(X=output_cl_deriv, fname='cl_test_deriv.dat')
-
+#
+#output = np.column_stack((np.linspace(70, 1000, 100), [model_limber.get_cl(el) for el in np.linspace(70, 1000, 100)]))
+#
+#np.savetxt(X=output, fname='cl_test.dat')
+#output_cl_deriv = np.column_stack((np.linspace(70, 1000, 100), [model_limber.get_cl_gradient(el) for el in np.linspace(70, 1000, 100)]))
+#
+#np.savetxt(X=output_cl_deriv, fname='cl_test_deriv.dat')
+#
 

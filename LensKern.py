@@ -32,20 +32,16 @@ class Hist(object):
 
 
     def evaluate(self, chi):
-        if (chi < self.breaks[0]) | (chi > self.breaks[-1]):
-            raise ValueError('Chi is outside the specified range.')
-        #print('evaluate')
-        #print(chi)
-        #print(self.breaks[0])
-        #print(self.breaks[-1])
+        #if (chi < self.breaks[0]) | (chi > self.breaks[-1]):
+            #raise ValueError('Chi is outside the specified range.')
 
         list_lens_kernel = np.sum([el(chi)/self.delta[idx]*self.vec_weights[idx] for idx, el in enumerate(self.list_kernel)])
         return list_lens_kernel
 
 
     def gradient(self, chi):
-        if (chi < self.breaks[0]) | (chi > self.breaks[-1]):
-            raise ValueError('Chi is outside the specified range.')
+        #if (chi < self.breaks[0]) | (chi > self.breaks[-1]):
+        #    raise ValueError('Chi is outside the specified range.')
 
         return np.array([self.list_kernel[index_bin](chi)/self.delta[index_bin] for index_bin in range(len(self.list_kernel))])
 

@@ -6,18 +6,15 @@ from scipy.optimize import fmin_bfgs
 
 
 class LossFunctionWL(object):
-    def __init__(self, cosmo_fid, cosmo_new, ell_vec, chi_grid, w_fid, ng, std_shape, fsky):
+    def __init__(self, cosmo_fid, cosmo_new, ell_vec, chi_breaks, w_fid, ng, std_shape, fsky):
 
         self.cosmo_fid = cosmo_fid
         self.cosmo_new = cosmo_new
         self.ell_vec = ell_vec
-        self.chi_grid = chi_grid
 
-        self.pi_dim = len(self.chi_grid)
+        self.pi_dim = len(w_fid)
 
-        delta_chi = (chi_grid[1] - chi_grid[0])/2.
-        breaks = chi_grid - delta_chi
-        self.breaks = np.append(breaks, breaks[-1] + 2.*delta_chi)
+        self.breaks = chi_breaks #np.append(breaks, breaks[-1] + 2.*delta_chi)
         self.w_fid = w_fid
 
         self.fid_hist = Hist(self.w_fid, self.breaks)
@@ -62,7 +59,6 @@ class GaussNzPrior(object):
         diff_pi = (pi - self.mean_pi)
         return self.inv_cov_pi.dot(diff_pi)
 
-
 class PhotLoss(object):
     def __init__(self, grid_vec, breaks):
         self.grid_vec = grid_vec
@@ -71,10 +67,10 @@ class PhotLoss(object):
         self.pi_dim = len(breaks) - 1
 
     def loss(self, pi):
-        return -np.sum(np.log((pi/self.delta).dot(self.grid_vec.T)+ sys.float_info.epsilon))
+        return -np.sum(np.log((pi/self.delta).dot(self.grid_vec.T) + sys.float_info.epsilon))
 
-    def gradient(self, pi):
-        denom=(pi/self.delta).dot(self.grid_vec.T)
+    def grad(self, pi):
+        denom=(pi/self.delta).dot(self.grid_vec.T) + sys.float_info.epsilon
         grad_res = np.zeros((self.pi_dim,))
         for k in range(len(grad_res)):
             int_term = self.grid_vec[:, k]/self.delta

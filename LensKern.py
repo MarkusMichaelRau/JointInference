@@ -29,6 +29,10 @@ class Hist(object):
             self.list_kernel.append(LensKern(self.breaks[i], self.breaks[i+1]))
             self.delta.append(breaks[i+1] - breaks[i])
         self.delta = np.array(self.delta)
+        #print('dimensions check')
+        #print(len(self.list_kernel))
+        #print(len(self.vec_weights))
+        #print(len(self.delta))
 
 
     def evaluate(self, chi):

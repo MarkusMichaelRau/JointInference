@@ -1,54 +1,56 @@
-import numpy as np 
+import numpy as np
+from scipy.optimize import minimize_scalar
 
-def projSimplex(vY, ballRadius, stopThr): 
+def projSimplex(vY, ballRadius, stopThr):
     """ from https://github.com/RoyiAvital/Projects/blob/master/Optimization/BallProjection/BallProjection.pdf
     """
     zeroVec = np.zeros((len(vY),))
     paramMu = np.min(vY) - ballRadius
     objFun = np.sum(np.maximum(vY - paramMu, zeroVec))-ballRadius
-    while(np.abs(objFun) > stopThr): 
+    while(np.abs(objFun) > stopThr):
         objFun = np.sum(np.maximum(vY - paramMu, zeroVec))-ballRadius
         df = np.sum(-((vY-paramMu)>0).astype(int))
         paramMu = paramMu - (objFun/(df+np.finfo(float).eps))
     return np.maximum(vY - paramMu, zeroVec)
 
 
-class ProjGradDescent(object): 
-    def __init__(self, loss, w_init=None, beta=0.5): 
-        self.loss = loss
+
+
+class ProjGradDescent(object):
+    def __init__(self, loss_fnkt, w_init=None, golden_limits=(0.000000001, 0.000001)):
+        self.loss_fnkt = loss_fnkt
         if w_init is None:
-            self.w_init = np.repeat(1./self.loss.pi_dim, self.loss.pi_dim)
+            self.w_init = np.repeat(1./self.loss_fnkt.pi_dim, self.loss_fnkt.pi_dim)
         else:
             self.w_init = w_init
-        self.beta = beta
-        
-    def backtrack_cond(self, t, w, grad): 
-        return self.loss.loss(w - t*grad) > self.loss.loss(w) - 0.5*t*grad.dot(grad)
-        
+
+        self.golden_limits = golden_limits
+
+    def exact_line_search(self, w, grad):
+        f = lambda t: self.loss_fnkt.loss(projSimplex(w-t*grad, 1, 0.001))
+        min_res = minimize_scalar(f, bracket=self.golden_limits)
+        if (min_res['x'] < self.golden_limits[0]) or (min_res['x'] > self.golden_limits[1]):
+            print('Hit limit')
+        return min_res['x']
+
+
     def optim(self, n_iter):
         trace_w = [self.w_init]
         trace_loss = []
         trace_grad = []
-        for it in range(n_iter): 
+        for it in range(n_iter):
             print(it)
-            grad_curr = self.loss.grad(trace_w[-1])
-            t = 1
-            while(self.backtrack_cond(t, trace_w[-1], grad_curr)):
-                t = self.beta * t           
+            grad_curr = self.loss_fnkt.grad(trace_w[-1])
+            t = self.exact_line_search(trace_w[-1], grad_curr)
             print(t)
-            print(grad_curr.dot(grad_curr)) 
             w_new = trace_w[-1] - t*grad_curr
             trace_w.append(projSimplex(w_new, 1, 0.001))
-            curr_loss = self.loss.loss(trace_w[-1])
-            print(curr_loss)
-            trace_loss.append(curr_loss)
+            trace_loss.append(self.loss_fnkt.loss(trace_w[-1]))
             trace_grad.append(grad_curr)
         trace_w = np.array(trace_w)
         trace_loss = np.array(trace_loss)
         trace_grad = np.array(trace_grad)
         return trace_w, trace_loss, trace_grad
-
-
 
 
 #from LossFunktions import GaussNzPrior

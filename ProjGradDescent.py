@@ -17,7 +17,7 @@ def projSimplex(vY, ballRadius, stopThr):
 
 
 class ProjGradDescent(object):
-    def __init__(self, loss_fnkt, w_init=None, golden_limits=(0.000000001, 0.000001)):
+    def __init__(self, loss_fnkt, w_init=None, golden_limits=(0.000000001, 0.0001)):
         self.loss_fnkt = loss_fnkt
         if w_init is None:
             self.w_init = np.repeat(1./self.loss_fnkt.pi_dim, self.loss_fnkt.pi_dim)
@@ -27,7 +27,7 @@ class ProjGradDescent(object):
         self.golden_limits = golden_limits
 
     def exact_line_search(self, w, grad):
-        f = lambda t: self.loss_fnkt.loss(projSimplex(w-t*grad, 1, 0.001))
+        f = lambda t: self.loss_fnkt.loss(projSimplex(w-t*grad, 1, 0.00001))
         min_res = minimize_scalar(f, bracket=self.golden_limits)
         if (min_res['x'] < self.golden_limits[0]) or (min_res['x'] > self.golden_limits[1]):
             print('Hit limit')
@@ -39,13 +39,21 @@ class ProjGradDescent(object):
         trace_loss = []
         trace_grad = []
         for it in range(n_iter):
+            print('iteration')
             print(it)
+            trace_loss.append(self.loss_fnkt.loss(trace_w[-1]))
+            print('loss')
+            print(trace_loss[-1])
+
             grad_curr = self.loss_fnkt.grad(trace_w[-1])
             t = self.exact_line_search(trace_w[-1], grad_curr)
+            print('stepsize')
             print(t)
             w_new = trace_w[-1] - t*grad_curr
-            trace_w.append(projSimplex(w_new, 1, 0.001))
-            trace_loss.append(self.loss_fnkt.loss(trace_w[-1]))
+            w_new = projSimplex(w_new, 1, 0.001)
+            print('wnew')
+            print(w_new)
+            trace_w.append(w_new)
             trace_grad.append(grad_curr)
         trace_w = np.array(trace_w)
         trace_loss = np.array(trace_loss)

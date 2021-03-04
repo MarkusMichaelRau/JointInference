@@ -60,36 +60,24 @@ fsky= 0.3
 std_shape = 0.23
 
 
-
 def run_optim(sig8):
 
     cosmo_new = ccl.Cosmology(Omega_c=0.27, Omega_b=0.045, h=0.67, sigma8=sig8, n_s=0.96,
                         transfer_function='bbks')
 
-    model_loss_wl = LossFunctionWL(cosmo_fid, cosmo_new, ell_vec, chi_grid, true_nz[0], ng, std_shape, fsky)
+    model_loss_wl = LossFunctionWL(cosmo_fid, cosmo_new, ell_vec, chi_grid, true_nz[0]/np.sum(true_nz[0]), ng, std_shape, fsky)
 
     model_joint = JointLossPhot(model_loss_wl, phot_loss)
 
-    model_projgrad = ProjGradDescent(model_joint)
-    result_w, result_loss, result_grad = model_projgrad.optim(200)
+    model_projgrad = ProjGradDescent(model_joint, true_nz[0]/np.sum(true_nz[0]))
+    result_w, result_loss, result_grad = model_projgrad.optim(500)
     np.savetxt(X=result_w, fname='result_w_proj_grad_descent_t1'+str(sig8)+'.dat')
     np.savetxt(X=result_loss, fname='result_loss_t1'+str(sig8)+'.dat')
     np.savetxt(X=result_grad, fname='result_grad_t1'+str(sig8)+'.dat')
 
-    #model_projgrad = ProjGradDescent(model_joint, w_init=result_w[-1], beta=0.1)
-    #result_w, result_loss, result_grad = model_projgrad.optim(140)
-    #np.savetxt(X=result_w, fname='result_w_proj_grad_descent_0_1'+str(sig8)+'.dat')
-    #np.savetxt(X=result_loss, fname='result_loss_0_1'+str(sig8)+'.dat')
-    #np.savetxt(X=result_grad, fname='result_grad_0_1'+str(sig8)+'.dat')
-
-    #model_projgrad = ProjGradDescent(model_joint, w_init=result_w[-1], beta=0.03)
-    #result_w, result_loss, result_grad = model_projgrad.optim(140)
-    #np.savetxt(X=result_w, fname='result_w_proj_grad_descent_0_03'+str(sig8)+'.dat')
-    #np.savetxt(X=result_loss, fname='result_loss_0_03'+str(sig8)+'.dat')
-    #np.savetxt(X=result_grad, fname='result_grad_0_03'+str(sig8)+'.dat')
 
 
-#run_optim(0.8)
+#run_optim(0.70)
 
 pool = multiprocessing.Pool(20)
 

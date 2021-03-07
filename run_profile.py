@@ -22,7 +22,7 @@ breaks = np.linspace(100, 4000, num=20)
 midpoints = np.array([np.mean(breaks[i:i+2]) for i in range(len(breaks)-1)])
 pz = norm.pdf(midpoints, 2000, 500)
 hist_pz = rv_histogram((pz, breaks))
-z_sample = hist_pz.rvs(size=50000)
+z_sample = hist_pz.rvs(size=100000)
 
 true_nz = np.histogram(z_sample, breaks, density=True)
 std = 20.0
@@ -47,7 +47,7 @@ cosmo_fid = ccl.Cosmology(Omega_c=0.27, Omega_b=0.045, h=0.67, sigma8=0.8, n_s=0
                         transfer_function='bbks')
 
 
-ell_vec = np.arange(70,1000, 10)
+ell_vec = (70,1000)
 chi_grid = np.linspace(100, 4000., 20)
 
 
@@ -65,12 +65,18 @@ def run_optim(sig8):
     cosmo_new = ccl.Cosmology(Omega_c=0.27, Omega_b=0.045, h=0.67, sigma8=sig8, n_s=0.96,
                         transfer_function='bbks')
 
+
+    model_ini = ProjGradDescent(phot_loss)
+
+    result_w_ini, result_loss_ini, result_grad_ini = model_ini.optim(200)
+
+
     model_loss_wl = LossFunctionWL(cosmo_fid, cosmo_new, ell_vec, chi_grid, true_nz[0]/np.sum(true_nz[0]), ng, std_shape, fsky)
 
     model_joint = JointLossPhot(model_loss_wl, phot_loss)
 
-    model_projgrad = ProjGradDescent(model_joint, true_nz[0]/np.sum(true_nz[0]))
-    result_w, result_loss, result_grad = model_projgrad.optim(500)
+    model_projgrad = ProjGradDescent(model_joint, result_w_ini[-1])
+    result_w, result_loss, result_grad = model_projgrad.optim(200)
     np.savetxt(X=result_w, fname='result_w_proj_grad_descent_t1'+str(sig8)+'.dat')
     np.savetxt(X=result_loss, fname='result_loss_t1'+str(sig8)+'.dat')
     np.savetxt(X=result_grad, fname='result_grad_t1'+str(sig8)+'.dat')

@@ -3,18 +3,21 @@ from LimberIntegrator import *
 from LensKern import *
 from cov import *
 from scipy.optimize import fmin_bfgs
+from scipy.interpolate import InterpolatedUnivariateSpline
+from tools import *
 
 
 class LossFunctionWL(object):
-    def __init__(self, cosmo_fid, cosmo_new, ell_vec, chi_breaks, w_fid, ng, std_shape, fsky):
-
+    def __init__(self, cosmo_fid, cosmo_new, ell_lims, chi_breaks, w_fid, ng, std_shape, fsky):
+        assert len(ell_lims) == 2
         self.cosmo_fid = cosmo_fid
         self.cosmo_new = cosmo_new
-        self.ell_vec = ell_vec
+        nbins_ell = 10
+        self.ell_vec = np.logspace(np.log10(ell_lims[0]), np.log10(ell_lims[1]), 10)
 
         self.pi_dim = len(w_fid)
 
-        self.breaks = chi_breaks #np.append(breaks, breaks[-1] + 2.*delta_chi)
+        self.breaks = chi_breaks
         self.w_fid = w_fid
 
         self.fid_hist = Hist(self.w_fid, self.breaks)

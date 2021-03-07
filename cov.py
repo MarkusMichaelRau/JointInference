@@ -3,7 +3,7 @@ import numpy as np
 
 class WlCov(object):
     def __init__(self, ell, num_dens, std_shape, fsky):
-        self.ell = ell
+        self.ell = np.arange(np.min(ell), np.max(ell), 1)
         self.num_dens = num_dens
         self.std_shape = std_shape
         self.fsky = fsky

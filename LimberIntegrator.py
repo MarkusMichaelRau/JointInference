@@ -8,7 +8,7 @@ from LensKern import *
 from scipy import optimize
 from logit import *
 from scipy.stats import norm
-
+from tools import *
 
 class LimberIntegrator(object):
     def __init__(self, cosmo, lens_kern1, lens_kern2):
@@ -44,7 +44,9 @@ class LimberIntegrator(object):
         result = []
         for i in range(len(ell_vec)):
             result.append(self.get_cl_partial(ell_vec[i], lens_kern1_eval, lens_kern2_eval))
-        return np.array(result)
+
+        ell_new, cl_new = interpolate(ell_vec, np.array(result))
+        return cl_new
 
     def _get_grad(self, ell):
         """ i is the tomographic bin number
@@ -63,8 +65,15 @@ class LimberIntegrator(object):
         grad_cl = []
         for el in ell_vec:
             grad_cl.append(self._get_grad(el))
+        grad_cl = np.array(grad_cl)
+        new_cl = []
+        for i in range(grad_cl.shape[1]):
+            ell_new, grad_new = interpolate(ell_vec, grad_cl[:, i])
+            new_cl.append(grad_new)
 
-        return np.array(grad_cl)
+        new_cl = np.array(new_cl)
+
+        return new_cl.T
 
 
 

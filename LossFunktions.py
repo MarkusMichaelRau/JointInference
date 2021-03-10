@@ -62,6 +62,25 @@ class GaussNzPrior(object):
         diff_pi = (pi - self.mean_pi)
         return self.inv_cov_pi.dot(diff_pi)
 
+
+class SmoothnessPrior(GaussNzPrior): 
+    def __init__(self, gamma, pi_dim): 
+        self.gamma = gamma
+        self.pi_dim = pi_dim
+        hess = self.get_smooth_matrix(pi_dim) 
+        if pi_dim > 3: 
+            raise ValueError('Values not supported!')
+        
+        super().__init__(np.zeros((pi_dim,)), self.gamma*np.linalg.inv(hess))
+
+    def get_smooth_matrix(self, dim):
+        mat = np.tri(dim, dim, k=0) * 6. + np.tri(dim, dim, k=-1) * -4. + np.tri(dim, dim, k=1)* -4.+ np.tri(dim, dim,
+        k=2) * 1. + np.tri(dim, dim, k=-2)*1.
+        mat[0, 0] = 5.
+        mat[-1, -1] = 5.
+        return mat
+
+
 class PhotLoss(object):
     def __init__(self, grid_vec, breaks):
         self.grid_vec = grid_vec

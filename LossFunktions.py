@@ -5,10 +5,10 @@ from cov import *
 from scipy.optimize import fmin_bfgs
 from scipy.interpolate import InterpolatedUnivariateSpline
 from tools import *
-
+import abc 
 
 class LossFunctionWL(object):
-    def __init__(self, cosmo_fid, cosmo_new, ell_lims, chi_breaks, w_fid, ng, std_shape, fsky):
+    def __init__(self, cosmo_fid, cosmo_new, ell_lims, z_breaks, nz_fid, ng, std_shape, fsky):
         assert len(ell_lims) == 2
         self.cosmo_fid = cosmo_fid
         self.cosmo_new = cosmo_new
@@ -63,15 +63,19 @@ class GaussNzPrior(object):
         return self.inv_cov_pi.dot(diff_pi)
 
 
-class SmoothnessPrior(GaussNzPrior): 
+class SmoothnessPrior(object): 
     def __init__(self, gamma, pi_dim): 
         self.gamma = gamma
         self.pi_dim = pi_dim
-        hess = self.get_smooth_matrix(pi_dim) 
-        if pi_dim > 3: 
+        self.mat = self.get_smooth_matrix(pi_dim) 
+        if pi_dim < 3: 
             raise ValueError('Values not supported!')
         
-        super().__init__(np.zeros((pi_dim,)), self.gamma*np.linalg.inv(hess))
+    def loss(self, pi):
+        return self.gamma*pi.dot(self.mat.dot(pi)) - self.pi_dim/2.*np.log(self.gamma)
+
+    def grad(self, pi): 
+        return 2.*self.gamma*self.mat.dot(pi)
 
     def get_smooth_matrix(self, dim):
         mat = np.tri(dim, dim, k=0) * 6. + np.tri(dim, dim, k=-1) * -4. + np.tri(dim, dim, k=1)* -4.+ np.tri(dim, dim,
@@ -80,6 +84,7 @@ class SmoothnessPrior(GaussNzPrior):
         mat[-1, -1] = 5.
         return mat
 
+   
 
 class PhotLoss(object):
     def __init__(self, grid_vec, breaks):
@@ -87,6 +92,12 @@ class PhotLoss(object):
         self.breaks= breaks
         self.delta = breaks[1] - breaks[0]
         self.pi_dim = len(breaks) - 1
+    
+    def set_grid_vec(self, grid_vec): 
+        self.grid_vec = grid_vec
+
+    def get_grid_vec(self): 
+        return self.grid_vec
 
     def loss(self, pi):
         return -np.sum(np.log((pi/self.delta).dot(self.grid_vec.T) + sys.float_info.epsilon))

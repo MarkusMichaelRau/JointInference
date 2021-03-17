@@ -18,26 +18,58 @@ import random
 
 random.seed(10)
 
-breaks = np.linspace(100, 4000, num=20)
+breaks = np.linspace(100, 4000, num=80)
 midpoints = np.array([np.mean(breaks[i:i+2]) for i in range(len(breaks)-1)])
 pz = norm.pdf(midpoints, 2000, 500)
 hist_pz = rv_histogram((pz, breaks))
-z_sample = hist_pz.rvs(size=100000)
+z_sample = hist_pz.rvs(size=5000)
 
 true_nz = np.histogram(z_sample, breaks, density=True)
-std = 20.0
+
+np.savetxt(X=np.column_stack((midpoints, true_nz[0])), fname='true_nz_test_prior.dat')
+
+std = 40.0
 
 mean_vec = np.array([norm.rvs(el, std) for el in z_sample])
 
 grid_vec = np.zeros((len(mean_vec), len(midpoints)))
 
 for i in range(len(mean_vec)):
+    print(i)
     for j in range(len(midpoints)):
         grid_vec[i, j] = norm.cdf(breaks[j+1], mean_vec[i], std) - norm.cdf(breaks[j], mean_vec[i], std)
 
+
+np.savetxt(X=grid_vec, fname='grid_vec.data')
+grid_vec = np.loadtxt('grid_vec.dat')
+sig8=0.8
 phot_loss = PhotLoss(grid_vec, breaks)
 
+for gamma in [1, 10, 100, 1000, 10000., 100000, 1000000, 10000000, 100000000,   1000000000,  10000000000]:
+    smoothness_prior = SmoothnessPrior(gamma, len(breaks)-1) 
+    print(phot_loss.pi_dim)
+    print(smoothness_prior.pi_dim)
+    model_joint = JointLossPrior(phot_loss, smoothness_prior) 
+    model_projgrad = ProjGradDescent(model_joint)
+    print('start optim')
+    result_w, result_loss, result_grad = model_projgrad.optim(300)
 
+    np.savetxt(X=result_w, fname='test_smoothness_prior_w_80_40std'+str(sig8)+ "  " + str(gamma)+'.dat')
+    np.savetxt(X=result_loss, fname='test_smoothness_prior_loss_80_40std'+str(sig8)+ "  " + str(gamma)+'.dat')
+    np.savetxt(X=result_grad, fname='test_smoothness_prior_grad_80_40std'+str(sig8)+ "  " + str(gamma)+'.dat')
+
+phot_loss = PhotLoss(grid_vec, breaks)
+model_projgrad = ProjGradDescent(phot_loss)
+print('start optim')
+result_w, result_loss, result_grad = model_projgrad.optim(300)
+
+np.savetxt(X=result_w, fname='test_smoothness_prior_w_80_noprior_40std'+str(sig8)+'.dat')
+np.savetxt(X=result_loss, fname='test_smoothness_prior_loss_80_noprior_40std'+str(sig8)+'.dat')
+np.savetxt(X=result_grad, fname='test_smoothness_prior_grad_80_noprior_40std'+str(sig8)+'.dat')
+
+
+
+1/0
 ########################
 # Define the Cosmology #
 ########################

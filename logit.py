@@ -1,16 +1,25 @@
 import numpy as np
 import sys
+from decimal import *
 
 def transformation_logit(pi_vec):
-    return np.log(pi_vec[:-1]/pi_vec[-1] + sys.float_info.epsilon)
+    return np.log(pi_vec[:-1]/(pi_vec[-1] + sys.float_info.epsilon) + sys.float_info.epsilon)
 
-def backtransform_logit(s_vec):
-    denom = 1. + np.sum(np.exp(s_vec))
 
-    vec_pi = np.exp(s_vec)/denom
+#def log_sum_exp_trick(s_vec): 
+#    print(np.sum(s_vec + np.min(s_vec)))
+#    return 1. + np.exp(np.log(np.sum(s_vec + np.min(s_vec))) - np.min(s_vec))
+
+def backtransform_logit(s):
+    s_vec = np.array([Decimal(el) for el in s])
+    denom = Decimal(1.) + np.sum(np.exp(s_vec))
+    vec_pi = np.exp(s_vec)/denom 
     vec_pi = vec_pi.tolist()
     vec_pi.append(1/denom)
-    return np.array(vec_pi)
+    
+    #print(np.array([np.float(el) for el in vec_pi]))
+    return np.array([np.float(el) for el in vec_pi])
+
 
 
 def factory_derivative(pi_vec, pi_trafo):

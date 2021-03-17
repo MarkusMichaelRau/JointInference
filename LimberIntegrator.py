@@ -3,7 +3,7 @@ import pyccl as ccl
 from pyccl.background import comoving_radial_distance as chi_a
 from scipy.interpolate import InterpolatedUnivariateSpline as inter
 from pyccl.power import nonlin_matter_power
-from scipy.integrate import simpson
+from scipy.integrate import simps as simpson
 from LensKern import *
 from scipy import optimize
 from logit import *

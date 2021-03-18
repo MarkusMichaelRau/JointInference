@@ -7,7 +7,7 @@ trace_gamma = [1]
 num_iter = 100
 
 
-class GetMLGamma(object): 
+class EmpBayesRegul(object): 
     def __init__(self, grid_list, breaks): 
         self.grid_list = grid_list
         self.PhotLoss = PhotLoss(grid_list, breaks)
@@ -32,6 +32,36 @@ class GetMLGamma(object):
         inv_cov = -(log_like_h + log_prior_h)
         return inv_cov
 
+    
+    def optim(self, gamma_ini, iterations=20, nsamp_em=1000): 
+        trace_gamma = [gamma_ini] 
+        trace_ml = []
+        trace_h_neg = []
+        for it in range(iterations): 
+            ml = self.get_ml(trace_gamma[-1])
+            trace_ml.append(ml)
+            h_neg = self.get_neg_hess(trace_gamma[-1], self.grid_list, ml)
+            trace_h_neg.append(h_neg)
+            v, d, vh = np.linalg.svd(h_neg)
+
+
+            samples_multiv = []
+            mean_vecs = transformation_logit(ml)
+            for _ in range(nsamp_em): 
+                d_inv_sq = np.diag(1./np.sqrt(d))
+                samp_vec = mean_vecs + v.dot(d_inv_sq.dot(np.random.normal(size=len(h_neg))))
+                samples_multiv.append(samp_vec)
+            
+            samples_multiv = np.array(samples_multiv)
+            samples_pi = np.array([backtransform_logit(el) for el in samples_multiv])
+            smooth_prior = SmoothnessPrior(trace_gamma[-1], self.grid_list.shape[1])
+            sum_term = np.sum([el.dot(smooth_prior.mat.dot(el)) for el in samples_pi])
+            mean_term = 2./(self.grid_list.shape[1]*nsamp_em)
+            trace_gamma.append(1./(mean_term*sum_term))
+            
+
+        output = {'ML': trace_ml, 'h_neg': trace_h_neg, 'gamma': trace_gamma}
+        return output   
 
 
 
@@ -78,72 +108,13 @@ if __name__ == '__main__':
         for j in range(len(midpoints)):
             grid_vec[i, j] = norm.cdf(breaks[j+1], mean_vec[i], std) - norm.cdf(breaks[j], mean_vec[i], std)
 
-
-#    grid_vec = np.loadtxt('grid_vec.dat')
-
-    trace_gamma = [10] 
-    trace_ml = []
-    trace_h_neg = []
-    for it in range(20): 
-        model_gamma = GetMLGamma(grid_vec, breaks)
-        ml = model_gamma.get_ml(trace_gamma[-1])
-        trace_ml.append(ml)
-        h_neg = model_gamma.get_neg_hess(trace_gamma[-1], grid_vec, ml)
-        trace_h_neg.append(h_neg)
-        v, d, vh = np.linalg.svd(h_neg)
+    
+    model = EmpBayesRegul(grid_vec, breaks)
+    output = model.optim(10)  
+    
 
 
-        samples_multiv = []
-        nsamp = 1000
-        mean_vecs = transformation_logit(ml)
-        for _ in range(nsamp): 
-            d_inv_sq = np.diag(1./np.sqrt(d))
-            samp_vec = mean_vecs + v.dot(d_inv_sq.dot(np.random.normal(size=len(h_neg))))
-            samples_multiv.append(samp_vec)
-        
-        samples_multiv = np.array(samples_multiv)
-        samples_pi = np.array([backtransform_logit(el) for el in samples_multiv])
-        plt.figure()
-        plt.plot(midpoints, pz/np.sum(pz), color='black', label='True')
-        plt.plot(midpoints, ml, label='ML')
-        plt.plot(midpoints, np.mean(samples_pi, axis=0), label='Sample Mean', color='blue')
-        plt.fill_between(midpoints, np.percentile(samples_pi, 10, axis=0), np.percentile(samples_pi, 90, axis=0),
-        alpha=0.3, color='blue')
-        plt.title(str(trace_gamma[-1]), fontsize=14)
-        plt.savefig('plot_empirical_bayes'+str(it)+'.pdf', bbox_inches='tight')
-        print(samples_pi)
-        smooth_prior = SmoothnessPrior(trace_gamma[-1], grid_vec.shape[1])
-        sum_term = np.sum([el.dot(smooth_prior.mat.dot(el)) for el in samples_pi])
-        mean_term = 2./(grid_vec.shape[1]*nsamp)
-        trace_gamma.append(1./(mean_term*sum_term))
-        
-        print('new gamma')
-        print(1./(mean_term*sum_term))
-        print(trace_gamma[-1])
-
-    print(trace_gamma)
-    output = {'ML': trace_ml, 'h_neg': trace_h_neg, 'gamma': trace_gamma, 'breaks': breaks, 'grid_vec': grid_vec}
     import pickle
     with open('output_empirical_bayes.pickle', 'wb') as outfile: 
         pickle.dump(output, outfile)
-    np.savetxt(X=np.array(trace_gamma), fname='trace_gamma_new.dat')
-#    print(np.mean(samples_pi, axis=0))
-#    from matplotlib import pyplot as plt
-#    plt.plot(midpoints, ml)
-#    plt.plot(midpoints, np.mean(samples_pi, axis=0))
-#    plt.fill_between(midpoints, np.percentile(samples_pi, 10, axis=0), np.percentile(samples_pi, 90, axis=0),
-#    alpha=0.3)
-#    plt.show()
-#    print(samples_multiv)
-#    print(v)
-#    print(d)
-#    print(vh)
-#   # 
-   # print('h')
-   # print(h_neg)
-   # np.savetxt(X=h_neg, fname='h_new.dat')
-   # print(np.linalg.pinv(h_neg))
-   # np.savetxt(X=np.linalg.pinv(h_neg), fname='MoorePenrose.dat')
-   # print(np.sum(np.linalg.pinv(h_neg) - np.linalg.pinv(h_neg).T))
-
 

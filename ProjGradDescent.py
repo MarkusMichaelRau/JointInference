@@ -30,8 +30,8 @@ class ProjGradDescent(object):
         if (min_res['x'] < self.golden_limits[0]) or (min_res['x'] > self.golden_limits[1]):
             print('Hit limit')
         return min_res['x']
-    
-    def curr_optim(self, w): 
+
+    def curr_optim(self, w):
         grad_curr = self.loss_fnkt.grad(w)
         t = self.exact_line_search(w, grad_curr)
         w_new = w - t*grad_curr
@@ -48,7 +48,7 @@ class ProjGradDescent(object):
             #t = self.exact_line_search(trace_w[-1], grad_curr)
             #w_new = trace_w[-1] - t*grad_curr
             #w_new = projSimplex(w_new, 1, 0.001)
-            w_new, grad_curr = self.curr_optim(trace_w[-1]) 
+            w_new, grad_curr = self.curr_optim(trace_w[-1])
 
             trace_w.append(w_new)
             trace_loss.append(self.loss_fnkt.loss(trace_w[-1]))
@@ -60,42 +60,32 @@ class ProjGradDescent(object):
         return trace_w, trace_loss, trace_grad
 
 
-class StochProjGradDescent(ProjGradDescent): 
-    def __init__(self, loss_fnkt, w_init=None, golden_limits=(0.0000000001, 0.001), batch_size=10000): 
+class StochProjGradDescent(ProjGradDescent):
+    def __init__(self, loss_fnkt, batch_class, w_init=None, golden_limits=(0.0000000001, 0.001), batch_size=10000):
         self.batch_size = batch_size
-        self.grid_vec = loss_fnkt.get_grid_vec()
+        self.batch = batch_class
         super(StochProjGradDescent, self).__init__(loss_fnkt, w_init, golden_limits)
-   
-    def iterate_minibatches(self, grid_vec, shuffle=True):
-        if shuffle:
-            indices = np.arange(grid_vec.shape[0])
-            np.random.shuffle(indices)
-        for start_idx in range(0, grid_vec.shape[0] - self.batch_size + 1, self.batch_size):
-            if shuffle:
-                excerpt = indices[start_idx:start_idx + self.batch_size]
-            else:
-                excerpt = slice(start_idx, start_idx + self.batch_size)
-            yield grid_vec[excerpt]
 
-    def optim(self, epochs): 
+
+    def optim(self, epochs, batch_sizes=(10, 5) ):
         trace_w = [self.w_init]
         trace_loss = []
         trace_grad = []
         for it in range(epochs):
-            for batch in self.iterate_minibatches(self.grid_vec, shuffle=True):
+            for batch in self.self.batch.get_batch(batch_sizes):
                 self.loss_fnkt.set_grid_vec(batch)
                 w_new, grad_curr = self.curr_optim(trace_w[-1])
                 trace_w.append(w_new)
                 trace_loss.append(self.loss_fnkt.loss(trace_w[-1]))
                 trace_grad.append(grad_curr)
-        
+
         trace_w = np.array(trace_w)
         trace_loss = np.array(trace_loss)
         trace_grad = np.array(trace_grad)
         return trace_w, trace_loss, trace_grad
 
 
-#if __name__ == '__main__': 
+#if __name__ == '__main__':
 #    #!/opt/packages/anaconda3/bin/python
 #    from matplotlib import pyplot as plt
 #    import sys
@@ -117,7 +107,7 @@ class StochProjGradDescent(ProjGradDescent):
 #    random.seed(10)
 #
 #    breaks = np.linspace(700, 3000, num=20)
-#    
+#
 #    midpoints = np.array([np.mean(breaks[i:i+2]) for i in range(len(breaks)-1)])
 #    pz = norm.pdf(midpoints, 2000, 500)
 #    hist_pz = rv_histogram((pz, breaks))
@@ -138,7 +128,7 @@ class StochProjGradDescent(ProjGradDescent):
  #       print(i)
  #       for j in range(len(midpoints)):
  #           grid_vec[i, j] = norm.cdf(breaks[j+1], mean_vec[i], std) - norm.cdf(breaks[j], mean_vec[i], std)
- #   
+ #
  #   np.savetxt(X=grid_vec, fname='test_data.dat')
 #    grid_vec = np.loadtxt('test_data.dat')
 #    model_phot_loss = PhotLoss(grid_vec, breaks)
@@ -147,7 +137,7 @@ class StochProjGradDescent(ProjGradDescent):
 #
 #    test = model.optim(200)
 #    plt.figure()
-#    plt.plot(test[1]) 
+#    plt.plot(test[1])
 #    plt.show()
 #    plt.figure()
 #    plt.plot(midpoints, test[0][0])
